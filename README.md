@@ -140,6 +140,7 @@ SPI_SPEED_HZ           SPI 速度，默认 12000000
 | `display_bus.c` | 当前底层传输实现，使用 wiringX GPIO 软件模拟 SPI |
 | `display_bus.h` | ST7789 上层调用的 bus 接口 |
 | `data.c` / `data.h` | 图片和字模测试数据 |
+| `examples/lvgl/` | 非默认编译的 LVGL flush adapter 示例 |
 
 当前仍然是软件 SPI：
 
@@ -169,6 +170,14 @@ void st7789_fill_rgb565(uint16_t color);
 ```
 
 后续接 LVGL 时，`flush_cb` 可以先调用 `st7789_set_window()`，再用 `st7789_write_data_buf()` 写入 RGB565 buffer。
+
+仓库中已提供一个非默认编译的 LVGL flush adapter 示例：
+
+```text
+examples/lvgl/
+```
+
+该示例支持 LVGL 8 / LVGL 9 的 flush callback 形态，具体接入方式见 `examples/lvgl/README.md`。
 
 ## 6. Run On Duo S
 
