@@ -107,7 +107,26 @@ make
 st7789
 ```
 
-## 5. Run On Duo S
+## 5. Code Structure
+
+当前代码已经把 ST7789 上层逻辑和底层传输拆开：
+
+| File | Description |
+| --- | --- |
+| `st7789.c` | ST7789V3 初始化、地址窗口设置、RGB565 刷屏测试 |
+| `display_bus.c` | 当前底层传输实现，使用 wiringX GPIO 软件模拟 SPI |
+| `display_bus.h` | ST7789 上层调用的 bus 接口 |
+| `data.c` / `data.h` | 图片和字模测试数据 |
+
+当前仍然是软件 SPI：
+
+```text
+st7789.c -> display_bus_write_cmd/data() -> GPIO bit-bang SPI
+```
+
+后续如果切换到硬件 SPI，可以优先只替换 `display_bus.c` 中的数据发送实现，上层 `TFT_init()`、`TFT_SET_ADD()`、`TFT_full()` 不需要一起重写。
+
+## 6. Run On Duo S
 
 将程序复制到 Duo S：
 
@@ -132,7 +151,7 @@ chmod +x st7789
 3. 屏幕循环全屏刷新 RED / GREEN / BLUE。
 ```
 
-## 6. Pinmux Notes
+## 7. Pinmux Notes
 
 本仓库使用软件 SPI，因此 `SCK` / `SDA` / `CS` / `DC` / `RES` / `BLK` 都需要能作为普通 GPIO 输出。
 
@@ -146,7 +165,28 @@ chmod +x st7789
 
 没有万用表时，可以把屏幕 `BLK` 临时接到待测 GPIO 上，用程序拉高/拉低该 GPIO，通过背光是否稳定 2 秒亮/2 秒灭来判断 GPIO 输出是否可靠。
 
-## 7. Debug Notes
+## 8. Hardware SPI Migration
+
+如果后续不再使用软件模拟 SPI，推荐先走用户态 `spidev`：
+
+```text
+1. 设备树打开目标 SPI 控制器，并挂 spidev 节点。
+2. pinmux 将 SCK / MOSI / 可选 CS 切到 SPI 复用功能。
+3. DC / RES / BLK 继续使用 wiringX GPIO 控制。
+4. display_bus.c 中用 /dev/spidevX.Y 替换 software_spi_send_byte()。
+5. ST7789 上层初始化和刷屏逻辑保持不变。
+```
+
+推荐迁移顺序：
+
+```text
+1. 保持当前软件 SPI 版本作为 known-good baseline。
+2. 先只抽象 bus 层，确认软件 SPI 不回归。
+3. 再新增 spidev bus 实现。
+4. 最后根据性能决定是否继续做内核 framebuffer / DRM。
+```
+
+## 9. Debug Notes
 
 完整定位过程见：
 
@@ -165,7 +205,7 @@ docs/debug/ST7789V3-display-bringup-debug.md
 6. 最终全屏 RGB 刷新成功的已知可用配置。
 ```
 
-## 8. References
+## 10. References
 
 - [zwyzwm/TFT-ST7789](https://github.com/zwyzwm/TFT-ST7789.git)
 - [milkv-duo/duo-examples](https://github.com/milkv-duo/duo-examples)

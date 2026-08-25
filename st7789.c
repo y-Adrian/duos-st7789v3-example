@@ -1,8 +1,8 @@
 #include "st7789.h"
 #include "data.h"
+#include "display_bus.h"
 #include "stdint.h"
 #include <unistd.h>
-#include <wiringx.h>
 #include "stdio.h"
 
 #define TFT_COLUMN_NUMBER 170
@@ -17,22 +17,6 @@
 
 #define PIC_LEN 120
 #define PIC_HIG 120
-
-#define SPI_SCK_PIN  23
-#define SPI_SDO_PIN  19
-#define SPI_RST_PIN  3 // 26
-#define SPI_DC_PIN   5 // 22
-#define SPI_CS_PIN   24
-#define BL_PIN       15
-
-#define SPI_RST_0    digitalWrite(SPI_RST_PIN, LOW)
-#define SPI_RST_1    digitalWrite(SPI_RST_PIN, HIGH)
-#define SPI_DC_0     digitalWrite(SPI_DC_PIN, LOW)
-#define SPI_DC_1     digitalWrite(SPI_DC_PIN, HIGH)
-#define SPI_CS_0     digitalWrite(SPI_CS_PIN, LOW)
-#define SPI_CS_1     digitalWrite(SPI_CS_PIN, HIGH)
-#define BL_0         digitalWrite(BL_PIN, LOW)
-#define BL_1         digitalWrite(BL_PIN, HIGH)
 
 const unsigned char *point;
 void delay_us(unsigned int us)
@@ -50,38 +34,14 @@ void delay_ms(unsigned int ms)
     }
 }
 
-void SPI_SendByte(unsigned char Value)
-{
-    unsigned char i;
-    for (i = 0; i < 8; i++) {
-        if (Value & 0x80)
-            digitalWrite(SPI_SDO_PIN, HIGH);
-        else
-            digitalWrite(SPI_SDO_PIN, LOW);
-
-        delay_us(3);
-        digitalWrite(SPI_SCK_PIN, HIGH);
-        delay_us(3);
-        digitalWrite(SPI_SCK_PIN, LOW);
-        delay_us(2);
-        Value <<= 1;
-    }
-}
-
 void TFT_SEND_CMD(unsigned char cmd)
 {
-  SPI_DC_0;
-  SPI_CS_0;
-  SPI_SendByte(cmd);
-  SPI_CS_1;
+    display_bus_write_cmd(cmd);
 }
 
 void TFT_SEND_DATA(unsigned char data)
 {
-    SPI_DC_1;
-    SPI_CS_0;
-    SPI_SendByte(data);
-    SPI_CS_1;
+    display_bus_write_data(data);
 }
 
 void TFT_SET_ADD(unsigned short x_start, unsigned short y_start,
@@ -129,9 +89,9 @@ void TFT_clear(void)
 // ST7789V3 初始化
 void TFT_init(void)
 {
-    SPI_RST_0;
+    display_bus_reset_assert();
     delay_ms(100);
-    SPI_RST_1;
+    display_bus_reset_release();
     delay_ms(150);
 
     TFT_SEND_CMD(0x11);         // Sleep Out
@@ -227,41 +187,16 @@ void Picture_display(const unsigned char *ptr_pic)
     }
 }
 
-static void DEV_GPIO_Init(void)
-{
-    int pins[] = {SPI_RST_PIN, SPI_DC_PIN, SPI_CS_PIN, BL_PIN, SPI_SCK_PIN, SPI_SDO_PIN};
-    for (int i = 0; i < 6; i++) {
-        if (wiringXValidGPIO(pins[i]) != 0) {
-            printf("Invalid GPIO %d\n", pins[i]);
-        } else {
-            printf("GPIO %d OK\n", pins[i]);
-            pinMode(pins[i], PINMODE_OUTPUT);
-        }
-    }
-    SPI_CS_1;
-    digitalWrite(SPI_SCK_PIN, LOW);
-}
-
-int wiringx_init(void)
-{
-    if (wiringXSetup("milkv_duos", NULL) == -1) {
-        wiringXGC();
-        return -1;
-    }
-    DEV_GPIO_Init();
-    return 0;
-}
-
 int main(void)
 {
     point = &picture_tab[0];
 
-    if (wiringx_init() != 0) {
-        printf("wiringX init failed\n");
+    if (display_bus_init() != 0) {
+        printf("display bus init failed\n");
         return -1;
     }
 
-    BL_1;
+    display_bus_backlight_on();
     printf("Backlight ON\n");
 
     TFT_init();
