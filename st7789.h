@@ -1,8 +1,33 @@
 #ifndef __ST7789_H
 #define __ST7789_H
 
+#include <stdint.h>
 
+#define ST7789_WIDTH   170
+#define ST7789_HEIGHT  320
 
+#define ST7789_RED     0xF800
+#define ST7789_GREEN   0x07E0
+#define ST7789_BLUE    0x001F
+#define ST7789_WHITE   0xFFFF
+#define ST7789_BLACK   0x0000
+
+void st7789_delay_us(unsigned int us);
+void st7789_delay_ms(unsigned int ms);
+void st7789_write_cmd(uint8_t cmd);
+void st7789_write_data(uint8_t data);
+void st7789_write_data_buf(const uint8_t *data, unsigned int len);
+void st7789_set_window(uint16_t x_start, uint16_t y_start,
+                       uint16_t x_end, uint16_t y_end);
+void st7789_fill_rgb565(uint16_t color);
+void st7789_clear(void);
+void st7789_init(void);
+void st7789_display_char16_16(unsigned int x, unsigned int y,
+                              unsigned long color,
+                              unsigned char word_serial_number);
+void st7789_picture_display(const unsigned char *ptr_pic);
+
+/* Legacy names kept for compatibility with the original sample. */
 void delay_us(unsigned int _us_time);
 void delay_ms(unsigned int _ms_time);
 void TFT_SEND_CMD(unsigned char o_command);

@@ -1,25 +1,14 @@
 #include "st7789.h"
 #include "data.h"
 #include "display_bus.h"
-#include "stdint.h"
-#include <unistd.h>
-#include "stdio.h"
 
-#define TFT_COLUMN_NUMBER 170
-#define TFT_LINE_NUMBER   320
 #define TFT_COLUMN_OFFSET 35
 #define TFT_LINE_OFFSET   0
-
-#define RED   0xF800
-#define GREEN 0x07E0
-#define BLUE  0x001F
-#define WHITE 0xFFFF
 
 #define PIC_LEN 120
 #define PIC_HIG 120
 
-const unsigned char *point;
-void delay_us(unsigned int us)
+void st7789_delay_us(unsigned int us)
 {
   volatile unsigned int i;
   while (us--) {
@@ -27,160 +16,160 @@ void delay_us(unsigned int us)
   }
 }
 
-void delay_ms(unsigned int ms)
+void st7789_delay_ms(unsigned int ms)
 {
     while (ms--) {
-        delay_us(1000);
+        st7789_delay_us(1000);
     }
 }
 
-void TFT_SEND_CMD(unsigned char cmd)
+void st7789_write_cmd(uint8_t cmd)
 {
     display_bus_write_cmd(cmd);
 }
 
-void TFT_SEND_DATA(unsigned char data)
+void st7789_write_data(uint8_t data)
 {
     display_bus_write_data(data);
 }
 
-void TFT_SEND_DATA_BUF(const unsigned char *data, unsigned int len)
+void st7789_write_data_buf(const uint8_t *data, unsigned int len)
 {
     display_bus_write_data_buf(data, len);
 }
 
-void TFT_SET_ADD(unsigned short x_start, unsigned short y_start,
-                 unsigned short x_end, unsigned short y_end)
+void st7789_set_window(uint16_t x_start, uint16_t y_start,
+                       uint16_t x_end, uint16_t y_end)
 {
-    unsigned short x1 = x_start + TFT_COLUMN_OFFSET;
-    unsigned short x2 = x_end   + TFT_COLUMN_OFFSET;
-    unsigned short y1 = y_start + TFT_LINE_OFFSET;
-    unsigned short y2 = y_end   + TFT_LINE_OFFSET;
+    uint16_t x1 = x_start + TFT_COLUMN_OFFSET;
+    uint16_t x2 = x_end   + TFT_COLUMN_OFFSET;
+    uint16_t y1 = y_start + TFT_LINE_OFFSET;
+    uint16_t y2 = y_end   + TFT_LINE_OFFSET;
 
-    TFT_SEND_CMD(0x2A);
-    TFT_SEND_DATA(x1 >> 8);
-    TFT_SEND_DATA(x1);
-    TFT_SEND_DATA(x2 >> 8);
-    TFT_SEND_DATA(x2);
+    st7789_write_cmd(0x2A);
+    st7789_write_data(x1 >> 8);
+    st7789_write_data(x1);
+    st7789_write_data(x2 >> 8);
+    st7789_write_data(x2);
 
-    TFT_SEND_CMD(0x2B);
-    TFT_SEND_DATA(y1 >> 8);
-    TFT_SEND_DATA(y1);
-    TFT_SEND_DATA(y2 >> 8);
-    TFT_SEND_DATA(y2);
+    st7789_write_cmd(0x2B);
+    st7789_write_data(y1 >> 8);
+    st7789_write_data(y1);
+    st7789_write_data(y2 >> 8);
+    st7789_write_data(y2);
 
-    TFT_SEND_CMD(0x2C);
+    st7789_write_cmd(0x2C);
 }
 
-// 先只刷小区域，验证是否稳定
-void TFT_full(unsigned int color)
+void st7789_fill_rgb565(uint16_t color)
 {
-    uint8_t line[170 * 2];
+    uint8_t line[ST7789_WIDTH * 2];
     unsigned int i;
     unsigned int row;
 
-    TFT_SET_ADD(0, 0, TFT_COLUMN_NUMBER - 1, TFT_LINE_NUMBER - 1);
+    st7789_set_window(0, 0, ST7789_WIDTH - 1, ST7789_HEIGHT - 1);
 
     for (i = 0; i < sizeof(line); i += 2) {
         line[i] = color >> 8;
         line[i + 1] = color;
     }
 
-    for (row = 0; row < TFT_LINE_NUMBER; row++) {
-        TFT_SEND_DATA_BUF(line, sizeof(line));
+    for (row = 0; row < ST7789_HEIGHT; row++) {
+        st7789_write_data_buf(line, sizeof(line));
     }
 }
 
-void TFT_clear(void)
+void st7789_clear(void)
 {
-    TFT_full(0xFFFF);
+    st7789_fill_rgb565(ST7789_WHITE);
 }
 
-// ST7789V3 初始化
-void TFT_init(void)
+void st7789_init(void)
 {
     display_bus_reset_assert();
-    delay_ms(100);
+    st7789_delay_ms(100);
     display_bus_reset_release();
-    delay_ms(150);
+    st7789_delay_ms(150);
 
-    TFT_SEND_CMD(0x11);         // Sleep Out
-    delay_ms(150);
+    st7789_write_cmd(0x11);         // Sleep Out
+    st7789_delay_ms(150);
 
-    TFT_SEND_CMD(0x36);         // Memory Access Control
-    TFT_SEND_DATA(0x00);        // 方向（当前使用）
+    st7789_write_cmd(0x36);         // Memory Access Control
+    st7789_write_data(0x00);        // 方向（当前使用）
 
-    TFT_SEND_CMD(0x3A);
-    TFT_SEND_DATA(0x05);        // 16-bit color
+    st7789_write_cmd(0x3A);
+    st7789_write_data(0x05);        // 16-bit color
 
-    TFT_SEND_CMD(0xB2);
-    TFT_SEND_DATA(0x0C);
-    TFT_SEND_DATA(0x0C);
-    TFT_SEND_DATA(0x00);
-    TFT_SEND_DATA(0x33);
-    TFT_SEND_DATA(0x33);
+    st7789_write_cmd(0xB2);
+    st7789_write_data(0x0C);
+    st7789_write_data(0x0C);
+    st7789_write_data(0x00);
+    st7789_write_data(0x33);
+    st7789_write_data(0x33);
 
-    TFT_SEND_CMD(0xB7);
-    TFT_SEND_DATA(0x35);
+    st7789_write_cmd(0xB7);
+    st7789_write_data(0x35);
 
-    TFT_SEND_CMD(0xBB);
-    TFT_SEND_DATA(0x1A);
+    st7789_write_cmd(0xBB);
+    st7789_write_data(0x1A);
 
-    TFT_SEND_CMD(0xC0);
-    TFT_SEND_DATA(0x2C);
+    st7789_write_cmd(0xC0);
+    st7789_write_data(0x2C);
 
-    TFT_SEND_CMD(0xC2);
-    TFT_SEND_DATA(0x01);
+    st7789_write_cmd(0xC2);
+    st7789_write_data(0x01);
 
-    TFT_SEND_CMD(0xC3);
-    TFT_SEND_DATA(0x0F);
+    st7789_write_cmd(0xC3);
+    st7789_write_data(0x0F);
 
-    TFT_SEND_CMD(0xC4);
-    TFT_SEND_DATA(0x20);
+    st7789_write_cmd(0xC4);
+    st7789_write_data(0x20);
 
-    TFT_SEND_CMD(0xC6);
-    TFT_SEND_DATA(0x0F);
+    st7789_write_cmd(0xC6);
+    st7789_write_data(0x0F);
 
-    TFT_SEND_CMD(0xD0);
-    TFT_SEND_DATA(0xA4);
-    TFT_SEND_DATA(0xA1);
+    st7789_write_cmd(0xD0);
+    st7789_write_data(0xA4);
+    st7789_write_data(0xA1);
 
     // Positive Gamma
-    TFT_SEND_CMD(0xE0);
-    TFT_SEND_DATA(0xD0); TFT_SEND_DATA(0x04); TFT_SEND_DATA(0x0D);
-    TFT_SEND_DATA(0x11); TFT_SEND_DATA(0x13); TFT_SEND_DATA(0x2B);
-    TFT_SEND_DATA(0x3F); TFT_SEND_DATA(0x54); TFT_SEND_DATA(0x4C);
-    TFT_SEND_DATA(0x18); TFT_SEND_DATA(0x0D); TFT_SEND_DATA(0x0B);
-    TFT_SEND_DATA(0x1F); TFT_SEND_DATA(0x23);
+    st7789_write_cmd(0xE0);
+    st7789_write_data(0xD0); st7789_write_data(0x04); st7789_write_data(0x0D);
+    st7789_write_data(0x11); st7789_write_data(0x13); st7789_write_data(0x2B);
+    st7789_write_data(0x3F); st7789_write_data(0x54); st7789_write_data(0x4C);
+    st7789_write_data(0x18); st7789_write_data(0x0D); st7789_write_data(0x0B);
+    st7789_write_data(0x1F); st7789_write_data(0x23);
 
     // Negative Gamma
-    TFT_SEND_CMD(0xE1);
-    TFT_SEND_DATA(0xD0); TFT_SEND_DATA(0x04); TFT_SEND_DATA(0x0C);
-    TFT_SEND_DATA(0x11); TFT_SEND_DATA(0x13); TFT_SEND_DATA(0x2C);
-    TFT_SEND_DATA(0x3F); TFT_SEND_DATA(0x44); TFT_SEND_DATA(0x51);
-    TFT_SEND_DATA(0x2F); TFT_SEND_DATA(0x1F); TFT_SEND_DATA(0x1F);
-    TFT_SEND_DATA(0x20); TFT_SEND_DATA(0x23);
+    st7789_write_cmd(0xE1);
+    st7789_write_data(0xD0); st7789_write_data(0x04); st7789_write_data(0x0C);
+    st7789_write_data(0x11); st7789_write_data(0x13); st7789_write_data(0x2C);
+    st7789_write_data(0x3F); st7789_write_data(0x44); st7789_write_data(0x51);
+    st7789_write_data(0x2F); st7789_write_data(0x1F); st7789_write_data(0x1F);
+    st7789_write_data(0x20); st7789_write_data(0x23);
 
-    TFT_SEND_CMD(0x21);         // Inversion On
-    TFT_SEND_CMD(0x29);         // Display On
-    delay_ms(100);
+    st7789_write_cmd(0x21);         // Inversion On
+    st7789_write_cmd(0x29);         // Display On
+    st7789_delay_ms(100);
 }
 
-void display_char16_16(unsigned int x, unsigned int y, unsigned long color, unsigned char word_serial_number)
+void st7789_display_char16_16(unsigned int x, unsigned int y,
+                              unsigned long color,
+                              unsigned char word_serial_number)
 {
     unsigned int column;
     unsigned char tm = 0, temp = 0, xxx = 0;
 
-    TFT_SET_ADD(x, y, x + 15, y + 15);
+    st7789_set_window(x, y, x + 15, y + 15);
     for (column = 0; column < 32; column++) {
         temp = chines_word[word_serial_number][xxx];
         for (tm = 0; tm < 8; tm++) {
             if (temp & 0x01) {
-                TFT_SEND_DATA(color >> 8);
-                TFT_SEND_DATA(color);
+                st7789_write_data(color >> 8);
+                st7789_write_data(color);
             } else {
-                TFT_SEND_DATA(0xFF);
-                TFT_SEND_DATA(0xFF);
+                st7789_write_data(0xFF);
+                st7789_write_data(0xFF);
             }
             temp >>= 1;
         }
@@ -188,36 +177,69 @@ void display_char16_16(unsigned int x, unsigned int y, unsigned long color, unsi
     }
 }
 
-void Picture_display(const unsigned char *ptr_pic)
+void st7789_picture_display(const unsigned char *ptr_pic)
 {
     unsigned long number;
-    TFT_SET_ADD(0, 0, PIC_LEN - 1, PIC_HIG - 1);
+    st7789_set_window(0, 0, PIC_LEN - 1, PIC_HIG - 1);
     for (number = 0; number < PIC_NUM; number++) {
-        TFT_SEND_DATA(*ptr_pic++);
+        st7789_write_data(*ptr_pic++);
     }
 }
 
-int main(void)
+void delay_us(unsigned int us)
 {
-    point = &picture_tab[0];
+    st7789_delay_us(us);
+}
 
-    if (display_bus_init() != 0) {
-        printf("display bus init failed\n");
-        return -1;
-    }
+void delay_ms(unsigned int ms)
+{
+    st7789_delay_ms(ms);
+}
 
-    display_bus_backlight_on();
-    printf("Backlight ON\n");
+void TFT_SEND_CMD(unsigned char cmd)
+{
+    st7789_write_cmd(cmd);
+}
 
-    TFT_init();
-    fflush(stdout);
+void TFT_SEND_DATA(unsigned char data)
+{
+    st7789_write_data(data);
+}
 
-    // 反复刷小区域纯色，方便观察是否稳定
-    while (1) {
-        printf("RED\n");   fflush(stdout); TFT_full(RED);   delay_ms(2000);
-        printf("GREEN\n"); fflush(stdout); TFT_full(GREEN); delay_ms(2000);
-        printf("BLUE\n");  fflush(stdout); TFT_full(BLUE);  delay_ms(2000);
-    }
+void TFT_SEND_DATA_BUF(const unsigned char *data, unsigned int len)
+{
+    st7789_write_data_buf(data, len);
+}
 
-    return 0;
+void TFT_SET_ADD(unsigned short x_start, unsigned short y_start,
+                 unsigned short x_end, unsigned short y_end)
+{
+    st7789_set_window(x_start, y_start, x_end, y_end);
+}
+
+void TFT_full(unsigned int color)
+{
+    st7789_fill_rgb565(color);
+}
+
+void TFT_clear(void)
+{
+    st7789_clear();
+}
+
+void TFT_init(void)
+{
+    st7789_init();
+}
+
+void display_char16_16(unsigned int x, unsigned int y,
+                       unsigned long color,
+                       unsigned char word_serial_number)
+{
+    st7789_display_char16_16(x, y, color, word_serial_number);
+}
+
+void Picture_display(const unsigned char *ptr_pic)
+{
+    st7789_picture_display(ptr_pic);
 }

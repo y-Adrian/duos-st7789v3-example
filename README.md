@@ -135,7 +135,8 @@ SPI_SPEED_HZ           SPI 速度，默认 12000000
 
 | File | Description |
 | --- | --- |
-| `st7789.c` | ST7789V3 初始化、地址窗口设置、RGB565 刷屏测试 |
+| `main.c` | RGB 全屏刷新测试入口 |
+| `st7789.c` / `st7789.h` | ST7789V3 初始化、地址窗口设置、RGB565 写屏 API |
 | `display_bus.c` | 当前底层传输实现，使用 wiringX GPIO 软件模拟 SPI |
 | `display_bus.h` | ST7789 上层调用的 bus 接口 |
 | `data.c` / `data.h` | 图片和字模测试数据 |
@@ -153,6 +154,21 @@ st7789.c -> display_bus_write_cmd/data() -> /dev/spidevX.Y
 ```
 
 `DC` / `RES` / `BLK` / `CS` 仍然由 wiringX GPIO 控制。`SCK` / `SDA(MOSI)` 在 `spidev` 模式下由硬件 SPI 控制器输出。
+
+当前可复用的 ST7789 API：
+
+```c
+int display_bus_init(void);
+void display_bus_backlight_on(void);
+
+void st7789_init(void);
+void st7789_set_window(uint16_t x_start, uint16_t y_start,
+                       uint16_t x_end, uint16_t y_end);
+void st7789_write_data_buf(const uint8_t *data, unsigned int len);
+void st7789_fill_rgb565(uint16_t color);
+```
+
+后续接 LVGL 时，`flush_cb` 可以先调用 `st7789_set_window()`，再用 `st7789_write_data_buf()` 写入 RGB565 buffer。
 
 ## 6. Run On Duo S
 
