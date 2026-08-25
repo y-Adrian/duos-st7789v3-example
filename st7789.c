@@ -265,7 +265,6 @@ int main(void)
     printf("Backlight ON\n");
 
     TFT_init();
-    printf("TFT_init done (0x36=0x60, small area test)\n");
     fflush(stdout);
 
     // 反复刷小区域纯色，方便观察是否稳定
