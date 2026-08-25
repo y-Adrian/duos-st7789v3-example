@@ -832,6 +832,41 @@ Result:
 After moving SCL/SDA back to SPI3 pins, hardware SPI refresh worked.
 ```
 
+### 1.7.7 SPI_NO_CS unsupported by current spidev driver
+
+When first testing the spidev backend, this error appeared:
+
+```text
+[  151.351145] spidev spi0.0: setup: unsupported mode bits 40
+set SPI mode failed: Invalid argument
+display bus init failed
+```
+
+Cause:
+
+```text
+The code tried to set SPI_MODE_0 | SPI_NO_CS.
+The current kernel spidev driver does not accept SPI_NO_CS.
+```
+
+Fix:
+
+```c
+uint8_t mode = SPI_MODE_0;
+```
+
+The display `CS` line is still controlled manually by GPIO:
+
+```text
+Display CS -> PIN24
+```
+
+Conclusion:
+
+```text
+Do not set SPI_NO_CS on this board/kernel. Use SPI_MODE_0 only, and keep manual GPIO CS.
+```
+
 ## 1.8 Follow-up notes
 
 Keep these points in mind when integrating this display into Pocket:
@@ -844,4 +879,5 @@ Keep these points in mind when integrating this display into Pocket:
 5. Stable full-screen RGB refresh should be the baseline before LVGL integration.
 6. The test program is based on https://github.com/zwyzwm/TFT-ST7789.git.
 7. For spidev, always use readlink to confirm which SoC SPI controller the device node maps to.
+8. The current spidev driver does not support SPI_NO_CS; use SPI_MODE_0 and manual GPIO CS.
 ```

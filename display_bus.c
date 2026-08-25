@@ -99,7 +99,7 @@ static int spidev_write_bytes(const uint8_t *data, unsigned int len)
 
 static int spidev_init(void)
 {
-    uint8_t mode = SPI_MODE_0 | SPI_NO_CS;
+    uint8_t mode = SPI_MODE_0;
     uint8_t bits = 8;
     uint32_t speed = SPI_SPEED_HZ;
 

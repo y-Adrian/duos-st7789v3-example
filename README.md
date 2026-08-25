@@ -261,6 +261,23 @@ Display SDA -> PIN30 / C14 / SPI0_SDO
 
 屏幕会只有背光，没有画面刷新，因为当前 `/dev/spidev0.0` 并不绑定到这个 SPI0 控制器。
 
+当前 spidev backend 使用：
+
+```text
+SPI mode: SPI_MODE_0
+CS:       GPIO manual CS, Display CS -> PIN24
+```
+
+不要在当前内核上给 spidev 设置 `SPI_NO_CS`。实测会失败：
+
+```text
+spidev spi0.0: setup: unsupported mode bits 40
+set SPI mode failed: Invalid argument
+display bus init failed
+```
+
+因此代码只设置 `SPI_MODE_0`。屏幕的 `CS` 仍然由 `display_bus.c` 里的 GPIO `PIN24` 手动控制。
+
 ## 8. Hardware SPI Migration
 
 如果后续不再使用软件模拟 SPI，当前仓库已经提供用户态 `spidev` backend：
