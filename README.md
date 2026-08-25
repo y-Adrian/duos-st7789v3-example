@@ -197,11 +197,53 @@ chmod +x st7789
 
 ```text
 1. 板上存在对应设备节点，例如 /dev/spidev0.0。
-2. 屏幕 SCL 接到该 SPI 控制器的 SCK。
-3. 屏幕 SDA 接到该 SPI 控制器的 MOSI。
-4. 对应 SCK/MOSI pinmux 已经切到 SPI 复用功能。
-5. DC / RES / BLK / CS 仍然接到当前代码配置的 GPIO。
+2. 先确认 /dev/spidevX.Y 实际绑定到哪个 SPI 控制器。
+3. 屏幕 SCL 接到该 SPI 控制器的 SCK。
+4. 屏幕 SDA 接到该 SPI 控制器的 MOSI。
+5. 对应 SCK/MOSI pinmux 已经切到 SPI 复用功能。
+6. DC / RES / BLK / CS 仍然接到当前代码配置的 GPIO。
 ```
+
+可以用下面命令确认 `spidev` 设备实际绑定的控制器：
+
+```sh
+readlink -f /sys/class/spidev/spidev0.0/device
+```
+
+当前已验证的板端结果：
+
+```text
+/sys/devices/platform/41b0000.spi3/spi_master/spi0/spi0.0
+```
+
+这说明 `/dev/spidev0.0` 实际对应的是 `spi3` 控制器，不是芯片管脚图里的 `SPI0`。
+
+因此当前 `DISPLAY_BUS=spidev SPI_DEV=/dev/spidev0.0` 的已验证接线是：
+
+```text
+Display SCL -> Duo S PIN23 / B15 / SPI3_SCK
+Display SDA -> Duo S PIN19 / B13 / SPI3_SDO
+Display CS  -> Duo S PIN24             # GPIO manual CS
+Display DC  -> Duo S PIN5
+Display RES -> Duo S PIN3
+Display BLK -> Duo S PIN15
+```
+
+对应 pinmux：
+
+```sh
+duo-pinmux -w B15/SPI3_SCK
+duo-pinmux -w B13/SPI3_SDO
+```
+
+注意：如果将 `SCL/SDA` 错接到管脚图中的 `SPI0_SCK/SPI0_SDO`：
+
+```text
+Display SCL -> PIN35 / C16 / SPI0_SCK
+Display SDA -> PIN30 / C14 / SPI0_SDO
+```
+
+屏幕会只有背光，没有画面刷新，因为当前 `/dev/spidev0.0` 并不绑定到这个 SPI0 控制器。
 
 ## 8. Hardware SPI Migration
 

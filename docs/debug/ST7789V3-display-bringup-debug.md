@@ -767,6 +767,71 @@ The display should continuously refresh full-screen red, green, and blue.
 This is the baseline before LVGL integration.
 ```
 
+### 1.7.6 spidev controller mapping test
+
+Use this when switching from software SPI to `/dev/spidevX.Y`.
+
+The important point is:
+
+```text
+/dev/spidev0.0 does not necessarily mean the SoC pin group named SPI0.
+```
+
+Check the real controller binding on the board:
+
+```sh
+readlink -f /sys/class/spidev/spidev0.0/device
+```
+
+Observed result in this project:
+
+```text
+/sys/devices/platform/41b0000.spi3/spi_master/spi0/spi0.0
+```
+
+Conclusion:
+
+```text
+/dev/spidev0.0 is bound to the spi3 controller.
+```
+
+Wrong hardware-SPI test wiring:
+
+```text
+Display SCL -> PIN35 / C16 / SPI0_SCK
+Display SDA -> PIN30 / C14 / SPI0_SDO
+```
+
+Observed result:
+
+```text
+Backlight was on, but the display showed no color refresh.
+```
+
+Correct hardware-SPI wiring for the verified `/dev/spidev0.0` device:
+
+```text
+Display SCL -> PIN23 / B15 / SPI3_SCK
+Display SDA -> PIN19 / B13 / SPI3_SDO
+Display CS  -> PIN24          # GPIO manual CS
+Display DC  -> PIN5
+Display RES -> PIN3
+Display BLK -> PIN15
+```
+
+Pinmux:
+
+```sh
+duo-pinmux -w B15/SPI3_SCK
+duo-pinmux -w B13/SPI3_SDO
+```
+
+Result:
+
+```text
+After moving SCL/SDA back to SPI3 pins, hardware SPI refresh worked.
+```
+
 ## 1.8 Follow-up notes
 
 Keep these points in mind when integrating this display into Pocket:
@@ -778,4 +843,5 @@ Keep these points in mind when integrating this display into Pocket:
 4. A red flash after 0x29 Display On usually means residual GRAM is visible, not that pixel writing is already correct.
 5. Stable full-screen RGB refresh should be the baseline before LVGL integration.
 6. The test program is based on https://github.com/zwyzwm/TFT-ST7789.git.
+7. For spidev, always use readlink to confirm which SoC SPI controller the device node maps to.
 ```
