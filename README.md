@@ -107,6 +107,28 @@ make
 st7789
 ```
 
+默认构建使用软件 SPI，相当于：
+
+```sh
+make DISPLAY_BUS=software
+```
+
+如果要测试用户态硬件 SPI / `spidev`：
+
+```sh
+make clean
+make DISPLAY_BUS=spidev SPI_DEV=/dev/spidev0.0 SPI_SPEED_HZ=12000000
+```
+
+其中：
+
+```text
+DISPLAY_BUS=software   使用 wiringX GPIO 软件模拟 SPI，默认值
+DISPLAY_BUS=spidev     使用 /dev/spidevX.Y 发送 SPI 数据
+SPI_DEV                spidev 设备节点，默认 /dev/spidev0.0
+SPI_SPEED_HZ           SPI 速度，默认 12000000
+```
+
 ## 5. Code Structure
 
 当前代码已经把 ST7789 上层逻辑和底层传输拆开：
@@ -124,7 +146,13 @@ st7789
 st7789.c -> display_bus_write_cmd/data() -> GPIO bit-bang SPI
 ```
 
-后续如果切换到硬件 SPI，可以优先只替换 `display_bus.c` 中的数据发送实现，上层 `TFT_init()`、`TFT_SET_ADD()`、`TFT_full()` 不需要一起重写。
+也可以通过 `DISPLAY_BUS=spidev` 切到用户态硬件 SPI：
+
+```text
+st7789.c -> display_bus_write_cmd/data() -> /dev/spidevX.Y
+```
+
+`DC` / `RES` / `BLK` / `CS` 仍然由 wiringX GPIO 控制。`SCK` / `SDA(MOSI)` 在 `spidev` 模式下由硬件 SPI 控制器输出。
 
 ## 6. Run On Duo S
 
@@ -153,7 +181,7 @@ chmod +x st7789
 
 ## 7. Pinmux Notes
 
-本仓库使用软件 SPI，因此 `SCK` / `SDA` / `CS` / `DC` / `RES` / `BLK` 都需要能作为普通 GPIO 输出。
+默认软件 SPI 模式下，`SCK` / `SDA` / `CS` / `DC` / `RES` / `BLK` 都需要能作为普通 GPIO 输出。
 
 如果屏幕只有背光、没有颜色刷新，请先确认：
 
@@ -165,15 +193,25 @@ chmod +x st7789
 
 没有万用表时，可以把屏幕 `BLK` 临时接到待测 GPIO 上，用程序拉高/拉低该 GPIO，通过背光是否稳定 2 秒亮/2 秒灭来判断 GPIO 输出是否可靠。
 
+`spidev` 模式下需要额外确认：
+
+```text
+1. 板上存在对应设备节点，例如 /dev/spidev0.0。
+2. 屏幕 SCL 接到该 SPI 控制器的 SCK。
+3. 屏幕 SDA 接到该 SPI 控制器的 MOSI。
+4. 对应 SCK/MOSI pinmux 已经切到 SPI 复用功能。
+5. DC / RES / BLK / CS 仍然接到当前代码配置的 GPIO。
+```
+
 ## 8. Hardware SPI Migration
 
-如果后续不再使用软件模拟 SPI，推荐先走用户态 `spidev`：
+如果后续不再使用软件模拟 SPI，当前仓库已经提供用户态 `spidev` backend：
 
 ```text
 1. 设备树打开目标 SPI 控制器，并挂 spidev 节点。
 2. pinmux 将 SCK / MOSI / 可选 CS 切到 SPI 复用功能。
 3. DC / RES / BLK 继续使用 wiringX GPIO 控制。
-4. display_bus.c 中用 /dev/spidevX.Y 替换 software_spi_send_byte()。
+4. 使用 DISPLAY_BUS=spidev 编译。
 5. ST7789 上层初始化和刷屏逻辑保持不变。
 ```
 
@@ -182,7 +220,7 @@ chmod +x st7789
 ```text
 1. 保持当前软件 SPI 版本作为 known-good baseline。
 2. 先只抽象 bus 层，确认软件 SPI 不回归。
-3. 再新增 spidev bus 实现。
+3. 再使用 DISPLAY_BUS=spidev 验证硬件 SPI。
 4. 最后根据性能决定是否继续做内核 framebuffer / DRM。
 ```
 

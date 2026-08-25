@@ -1,4 +1,7 @@
 TARGET=st7789
+DISPLAY_BUS ?= software
+SPI_DEV ?= /dev/spidev0.0
+SPI_SPEED_HZ ?= 12000000
 
 ifeq (,$(TOOLCHAIN_PREFIX))
 $(error TOOLCHAIN_PREFIX is not set)
@@ -15,6 +18,14 @@ endif
 CC = $(TOOLCHAIN_PREFIX)gcc
 SYSROOT = /home/adrian/pocket/duo-sdk/host-tools/gcc/riscv64-linux-musl-aarch64/sysroot
 CFLAGS += -I$(SYSROOT)/usr/include
+CFLAGS += -DSPI_DEV=\"$(SPI_DEV)\"
+CFLAGS += -DSPI_SPEED_HZ=$(SPI_SPEED_HZ)
+
+ifeq ($(DISPLAY_BUS),spidev)
+CFLAGS += -DDISPLAY_BUS_SPIDEV
+else ifneq ($(DISPLAY_BUS),software)
+$(error DISPLAY_BUS must be software or spidev)
+endif
 
 LDFLAGS += -L$(SYSROOT)/lib
 LDFLAGS += -L$(SYSROOT)/usr/lib
@@ -34,4 +45,3 @@ clean:
 	@rm *.o -rf
 	@rm $(OBJS) -rf
 	@rm $(TARGET)
-

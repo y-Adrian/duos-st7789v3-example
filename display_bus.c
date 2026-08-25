@@ -1,6 +1,16 @@
 #include "display_bus.h"
 
+#ifdef DISPLAY_BUS_SPIDEV
+#include <fcntl.h>
+#include <linux/spi/spidev.h>
+#include <stdint.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#endif
+
+#include <errno.h>
 #include <stdio.h>
+#include <string.h>
 #include <wiringx.h>
 
 #define SPI_SCK_PIN  23
@@ -19,6 +29,18 @@
 #define BL_0         digitalWrite(BL_PIN, LOW)
 #define BL_1         digitalWrite(BL_PIN, HIGH)
 
+#ifndef SPI_DEV
+#define SPI_DEV "/dev/spidev0.0"
+#endif
+
+#ifndef SPI_SPEED_HZ
+#define SPI_SPEED_HZ 12000000
+#endif
+
+#ifdef DISPLAY_BUS_SPIDEV
+static int spi_fd = -1;
+#endif
+
 static void bus_delay_us(unsigned int us)
 {
     volatile unsigned int i;
@@ -28,6 +50,7 @@ static void bus_delay_us(unsigned int us)
     }
 }
 
+#ifndef DISPLAY_BUS_SPIDEV
 static void software_spi_send_byte(uint8_t value)
 {
     unsigned char i;
@@ -44,6 +67,69 @@ static void software_spi_send_byte(uint8_t value)
         value <<= 1;
     }
 }
+#endif
+
+#ifdef DISPLAY_BUS_SPIDEV
+static int spidev_write_bytes(const uint8_t *data, unsigned int len)
+{
+    ssize_t ret;
+
+    if (spi_fd < 0) {
+        printf("spidev is not open\n");
+        return -1;
+    }
+
+    while (len > 0) {
+        ret = write(spi_fd, data, len);
+        if (ret < 0) {
+            printf("write %s failed: %s\n", SPI_DEV, strerror(errno));
+            return -1;
+        }
+        if (ret == 0) {
+            printf("write %s returned 0\n", SPI_DEV);
+            return -1;
+        }
+
+        data += ret;
+        len -= (unsigned int)ret;
+    }
+
+    return 0;
+}
+
+static int spidev_init(void)
+{
+    uint8_t mode = SPI_MODE_0 | SPI_NO_CS;
+    uint8_t bits = 8;
+    uint32_t speed = SPI_SPEED_HZ;
+
+    spi_fd = open(SPI_DEV, O_RDWR);
+    if (spi_fd < 0) {
+        printf("open %s failed: %s\n", SPI_DEV, strerror(errno));
+        return -1;
+    }
+
+    if (ioctl(spi_fd, SPI_IOC_WR_MODE, &mode) < 0) {
+        printf("set SPI mode failed: %s\n", strerror(errno));
+        return -1;
+    }
+
+    if (ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD, &bits) < 0) {
+        printf("set SPI bits failed: %s\n", strerror(errno));
+        return -1;
+    }
+
+    if (ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed) < 0) {
+        printf("set SPI speed failed: %s\n", strerror(errno));
+        return -1;
+    }
+
+    printf("spidev bus: %s, mode=0x%x, bits=%u, speed=%u Hz\n",
+           SPI_DEV, mode, bits, speed);
+
+    return 0;
+}
+#endif
 
 int display_bus_init(void)
 {
@@ -52,8 +138,10 @@ int display_bus_init(void)
         SPI_DC_PIN,
         SPI_CS_PIN,
         BL_PIN,
+#ifndef DISPLAY_BUS_SPIDEV
         SPI_SCK_PIN,
         SPI_SDO_PIN,
+#endif
     };
     unsigned int i;
 
@@ -72,8 +160,16 @@ int display_bus_init(void)
     }
 
     SPI_CS_1;
+#ifndef DISPLAY_BUS_SPIDEV
     digitalWrite(SPI_SCK_PIN, LOW);
     digitalWrite(SPI_SDO_PIN, LOW);
+#endif
+
+#ifdef DISPLAY_BUS_SPIDEV
+    if (spidev_init() != 0) {
+        return -1;
+    }
+#endif
 
     return 0;
 }
@@ -102,7 +198,11 @@ void display_bus_write_cmd(uint8_t cmd)
 {
     SPI_DC_0;
     SPI_CS_0;
+#ifdef DISPLAY_BUS_SPIDEV
+    spidev_write_bytes(&cmd, 1);
+#else
     software_spi_send_byte(cmd);
+#endif
     SPI_CS_1;
 }
 
@@ -110,18 +210,28 @@ void display_bus_write_data(uint8_t data)
 {
     SPI_DC_1;
     SPI_CS_0;
+#ifdef DISPLAY_BUS_SPIDEV
+    spidev_write_bytes(&data, 1);
+#else
     software_spi_send_byte(data);
+#endif
     SPI_CS_1;
 }
 
 void display_bus_write_data_buf(const uint8_t *data, unsigned int len)
 {
+#ifndef DISPLAY_BUS_SPIDEV
     unsigned int i;
+#endif
 
     SPI_DC_1;
     SPI_CS_0;
+#ifdef DISPLAY_BUS_SPIDEV
+    spidev_write_bytes(data, len);
+#else
     for (i = 0; i < len; i++) {
         software_spi_send_byte(data[i]);
     }
+#endif
     SPI_CS_1;
 }

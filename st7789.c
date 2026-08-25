@@ -44,6 +44,11 @@ void TFT_SEND_DATA(unsigned char data)
     display_bus_write_data(data);
 }
 
+void TFT_SEND_DATA_BUF(const unsigned char *data, unsigned int len)
+{
+    display_bus_write_data_buf(data, len);
+}
+
 void TFT_SET_ADD(unsigned short x_start, unsigned short y_start,
                  unsigned short x_end, unsigned short y_end)
 {
@@ -70,14 +75,19 @@ void TFT_SET_ADD(unsigned short x_start, unsigned short y_start,
 // 先只刷小区域，验证是否稳定
 void TFT_full(unsigned int color)
 {
-    unsigned int i, j;
+    uint8_t line[170 * 2];
+    unsigned int i;
+    unsigned int row;
 
     TFT_SET_ADD(0, 0, TFT_COLUMN_NUMBER - 1, TFT_LINE_NUMBER - 1);
-    for (i = 0; i < TFT_COLUMN_NUMBER; i++) {
-        for (j = 0; j < TFT_LINE_NUMBER; j++) {
-            TFT_SEND_DATA(color >> 8);
-            TFT_SEND_DATA(color);
-        }
+
+    for (i = 0; i < sizeof(line); i += 2) {
+        line[i] = color >> 8;
+        line[i + 1] = color;
+    }
+
+    for (row = 0; row < TFT_LINE_NUMBER; row++) {
+        TFT_SEND_DATA_BUF(line, sizeof(line));
     }
 }
 
