@@ -65,7 +65,7 @@ def main():
     image = resize_image(image, args.width, args.height, args.fit)
 
     values = []
-    for r, g, b in image.getdata():
+    for r, g, b in image.get_flattened_data():
         rgb565 = rgb888_to_rgb565(r, g, b)
         values.append(rgb565 >> 8)
         values.append(rgb565 & 0xFF)
