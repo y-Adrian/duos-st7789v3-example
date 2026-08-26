@@ -135,12 +135,12 @@ SPI_SPEED_HZ           SPI 速度，默认 12000000
 
 | File | Description |
 | --- | --- |
-| `main.c` | RGB 全屏刷新测试入口 |
+| `main.c` | 显示测试入口：三色条、渐变、棋盘、图片 |
 | `st7789.c` / `st7789.h` | ST7789V3 初始化、地址窗口设置、RGB565 写屏 API |
 | `display_bus.c` | 当前底层传输实现，使用 wiringX GPIO 软件模拟 SPI |
 | `display_bus.h` | ST7789 上层调用的 bus 接口 |
 | `data.c` / `data.h` | 图片和字模测试数据 |
-| `examples/lvgl/` | 非默认编译的 LVGL flush adapter 示例 |
+| `tools/image_to_rgb565_c.py` | 将 PNG / JPG 转成 ST7789 可直接写入的 RGB565 C 数组 |
 
 当前仍然是软件 SPI：
 
@@ -167,19 +167,65 @@ void st7789_set_window(uint16_t x_start, uint16_t y_start,
                        uint16_t x_end, uint16_t y_end);
 void st7789_write_data_buf(const uint8_t *data, unsigned int len);
 void st7789_fill_rgb565(uint16_t color);
+void st7789_draw_rgb565_image(uint16_t x, uint16_t y,
+                              uint16_t width, uint16_t height,
+                              const uint8_t *data);
+void st7789_draw_vertical_gradient(void);
+void st7789_draw_checkerboard(uint16_t tile_size);
 ```
 
-后续接 LVGL 时，`flush_cb` 可以先调用 `st7789_set_window()`，再用 `st7789_write_data_buf()` 写入 RGB565 buffer。
-
-仓库中已提供一个非默认编译的 LVGL flush adapter 示例：
+图片数据格式：
 
 ```text
-examples/lvgl/
+1. 每个像素使用 RGB565，16 bit。
+2. 每个像素写入 2 个字节：高字节在前，低字节在后。
+3. 像素顺序是从左到右、从上到下。
+4. 数组长度必须等于 width * height * 2。
 ```
 
-该示例支持 LVGL 8 / LVGL 9 的 flush callback 形态，具体接入方式见 `examples/lvgl/README.md`。
+例如 120x120 图片需要：
 
-## 6. Run On Duo S
+```text
+120 * 120 * 2 = 28800 bytes
+```
+
+## 6. Convert Images To Display Data
+
+仓库提供了一个简单转换脚本：
+
+```sh
+python3 -m pip install Pillow
+python3 tools/image_to_rgb565_c.py input.png \
+    --width 120 \
+    --height 120 \
+    --name picture_tab \
+    --output picture_data.c
+```
+
+输出文件里会生成类似这样的数组：
+
+```c
+#include <stdint.h>
+
+#define PICTURE_TAB_WIDTH 120
+#define PICTURE_TAB_HEIGHT 120
+
+const uint8_t picture_tab[] = {
+    0xF8, 0x00, 0x07, 0xE0,
+};
+```
+
+如果要替换仓库内置示例图，可以把生成出的数组内容放到 `data.c`，并让 `data.h` 中的 `PICTURE_TAB_WIDTH` / `PICTURE_TAB_HEIGHT` 与转换参数保持一致。
+
+脚本支持三种缩放方式：
+
+```text
+--fit cover     填满目标尺寸，必要时裁切，默认值
+--fit contain   保留完整图片，空白处补黑
+--fit stretch   直接拉伸到目标尺寸
+```
+
+## 7. Run On Duo S
 
 将程序复制到 Duo S：
 
@@ -201,10 +247,10 @@ chmod +x st7789
 ```text
 1. 背光打开。
 2. 程序打印 GPIO 初始化信息。
-3. 屏幕循环全屏刷新 RED / GREEN / BLUE。
+3. 屏幕循环显示三色条、渐变、棋盘、居中图片。
 ```
 
-## 7. Pinmux Notes
+## 8. Pinmux Notes
 
 默认软件 SPI 模式下，`SCK` / `SDA` / `CS` / `DC` / `RES` / `BLK` 都需要能作为普通 GPIO 输出。
 
@@ -287,7 +333,7 @@ display bus init failed
 
 因此代码只设置 `SPI_MODE_0`。屏幕的 `CS` 仍然由 `display_bus.c` 里的 GPIO `PIN24` 手动控制。
 
-## 8. Hardware SPI Migration
+## 9. Hardware SPI Migration
 
 如果后续不再使用软件模拟 SPI，当前仓库已经提供用户态 `spidev` backend：
 
@@ -308,7 +354,7 @@ display bus init failed
 4. 最后根据性能决定是否继续做内核 framebuffer / DRM。
 ```
 
-## 9. Debug Notes
+## 10. Debug Notes
 
 完整定位过程见：
 
@@ -327,7 +373,7 @@ docs/debug/ST7789V3-display-bringup-debug.md
 6. 最终全屏 RGB 刷新成功的已知可用配置。
 ```
 
-## 10. References
+## 11. References
 
 - [zwyzwm/TFT-ST7789](https://github.com/zwyzwm/TFT-ST7789.git)
 - [milkv-duo/duo-examples](https://github.com/milkv-duo/duo-examples)

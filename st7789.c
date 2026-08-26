@@ -5,9 +5,6 @@
 #define TFT_COLUMN_OFFSET 35
 #define TFT_LINE_OFFSET   0
 
-#define PIC_LEN 120
-#define PIC_HIG 120
-
 void st7789_delay_us(unsigned int us)
 {
   volatile unsigned int i;
@@ -82,6 +79,80 @@ void st7789_fill_rgb565(uint16_t color)
 void st7789_clear(void)
 {
     st7789_fill_rgb565(ST7789_WHITE);
+}
+
+void st7789_draw_rgb565_image(uint16_t x, uint16_t y,
+                              uint16_t width, uint16_t height,
+                              const uint8_t *data)
+{
+    if (data == 0 || width == 0 || height == 0) {
+        return;
+    }
+
+    if (x >= ST7789_WIDTH || y >= ST7789_HEIGHT) {
+        return;
+    }
+
+    if ((uint32_t)x + width > ST7789_WIDTH ||
+        (uint32_t)y + height > ST7789_HEIGHT) {
+        return;
+    }
+
+    st7789_set_window(x, y, x + width - 1, y + height - 1);
+    st7789_write_data_buf(data, (unsigned int)width * height * 2);
+}
+
+void st7789_draw_vertical_gradient(void)
+{
+    uint8_t line[ST7789_WIDTH * 2];
+    unsigned int x;
+    unsigned int y;
+
+    st7789_set_window(0, 0, ST7789_WIDTH - 1, ST7789_HEIGHT - 1);
+
+    for (y = 0; y < ST7789_HEIGHT; y++) {
+        uint8_t r = (uint8_t)((y * 31) / (ST7789_HEIGHT - 1));
+        uint8_t g = (uint8_t)(((ST7789_HEIGHT - 1 - y) * 63) / (ST7789_HEIGHT - 1));
+        uint8_t b = (uint8_t)((y * 31) / (ST7789_HEIGHT - 1));
+        uint16_t color = (uint16_t)((r << 11) | (g << 5) | b);
+
+        for (x = 0; x < ST7789_WIDTH; x++) {
+            line[x * 2] = color >> 8;
+            line[x * 2 + 1] = color;
+        }
+
+        st7789_write_data_buf(line, sizeof(line));
+    }
+}
+
+void st7789_draw_checkerboard(uint16_t tile_size)
+{
+    uint8_t line[ST7789_WIDTH * 2];
+    unsigned int x;
+    unsigned int y;
+
+    if (tile_size == 0) {
+        tile_size = 16;
+    }
+
+    st7789_set_window(0, 0, ST7789_WIDTH - 1, ST7789_HEIGHT - 1);
+
+    for (y = 0; y < ST7789_HEIGHT; y++) {
+        for (x = 0; x < ST7789_WIDTH; x++) {
+            uint16_t color;
+
+            if (((x / tile_size) + (y / tile_size)) & 1) {
+                color = ST7789_CYAN;
+            } else {
+                color = ST7789_MAGENTA;
+            }
+
+            line[x * 2] = color >> 8;
+            line[x * 2 + 1] = color;
+        }
+
+        st7789_write_data_buf(line, sizeof(line));
+    }
 }
 
 void st7789_init(void)
@@ -179,11 +250,7 @@ void st7789_display_char16_16(unsigned int x, unsigned int y,
 
 void st7789_picture_display(const unsigned char *ptr_pic)
 {
-    unsigned long number;
-    st7789_set_window(0, 0, PIC_LEN - 1, PIC_HIG - 1);
-    for (number = 0; number < PIC_NUM; number++) {
-        st7789_write_data(*ptr_pic++);
-    }
+    st7789_draw_rgb565_image(0, 0, PICTURE_TAB_WIDTH, PICTURE_TAB_HEIGHT, ptr_pic);
 }
 
 void delay_us(unsigned int us)

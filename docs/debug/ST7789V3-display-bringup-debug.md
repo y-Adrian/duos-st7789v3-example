@@ -764,7 +764,7 @@ Expected result:
 
 ```text
 The display should continuously refresh full-screen red, green, and blue.
-This is the baseline before LVGL integration.
+This is the baseline before trying more complex RGB565 drawing.
 ```
 
 ### 1.7.6 spidev controller mapping test
@@ -876,7 +876,7 @@ Keep these points in mind when integrating this display into Pocket:
 2. Software SPI requires all selected pins to be GPIO, not SPI alternate functions.
 3. When debugging without a voltage meter, BLK can be used as a simple GPIO output indicator.
 4. A red flash after 0x29 Display On usually means residual GRAM is visible, not that pixel writing is already correct.
-5. Stable full-screen RGB refresh should be the baseline before LVGL integration.
+5. Stable full-screen RGB refresh should be the baseline before trying more complex RGB565 drawing.
 6. The test program is based on https://github.com/zwyzwm/TFT-ST7789.git.
 7. For spidev, always use readlink to confirm which SoC SPI controller the device node maps to.
 8. The current spidev driver does not support SPI_NO_CS; use SPI_MODE_0 and manual GPIO CS.
