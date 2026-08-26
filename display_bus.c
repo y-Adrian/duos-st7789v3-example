@@ -37,10 +37,13 @@
 #define SPI_SPEED_HZ 12000000
 #endif
 
+#define SPI_WRITE_CHUNK_SIZE 4096U
+
 #ifdef DISPLAY_BUS_SPIDEV
 static int spi_fd = -1;
 #endif
 
+#ifndef DISPLAY_BUS_SPIDEV
 static void bus_delay_us(unsigned int us)
 {
     volatile unsigned int i;
@@ -50,7 +53,6 @@ static void bus_delay_us(unsigned int us)
     }
 }
 
-#ifndef DISPLAY_BUS_SPIDEV
 static void software_spi_send_byte(uint8_t value)
 {
     unsigned char i;
@@ -222,12 +224,21 @@ void display_bus_write_data_buf(const uint8_t *data, unsigned int len)
 {
 #ifndef DISPLAY_BUS_SPIDEV
     unsigned int i;
+#else
+    unsigned int chunk;
 #endif
 
     SPI_DC_1;
     SPI_CS_0;
 #ifdef DISPLAY_BUS_SPIDEV
-    spidev_write_bytes(data, len);
+    while (len > 0) {
+        chunk = len > SPI_WRITE_CHUNK_SIZE ? SPI_WRITE_CHUNK_SIZE : len;
+        if (spidev_write_bytes(data, chunk) != 0) {
+            break;
+        }
+        data += chunk;
+        len -= chunk;
+    }
 #else
     for (i = 0; i < len; i++) {
         software_spi_send_byte(data[i]);

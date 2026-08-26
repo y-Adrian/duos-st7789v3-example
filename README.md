@@ -254,6 +254,13 @@ const uint8_t picture_tab[PICTURE_TAB_SIZE] = {
 ```
 
 如果要替换仓库内置示例图，直接用新生成的 `picture_data.c` / `picture_data.h` 覆盖仓库里的同名文件即可，不需要再手动修改 `data.c` 或尺寸宏。
+生成后重新编译并把新的 `st7789` 可执行文件复制到板子上运行即可。
+
+```sh
+make clean
+make DISPLAY_BUS=spidev DISPLAY_ORIENTATION=landscape SPI_DEV=/dev/spidev0.0 SPI_SPEED_HZ=12000000
+scp st7789 root@192.168.42.1:/root/
+```
 
 脚本支持三种缩放方式：
 
@@ -378,6 +385,14 @@ display bus init failed
 ```
 
 因此代码只设置 `SPI_MODE_0`。屏幕的 `CS` 仍然由 `display_bus.c` 里的 GPIO `PIN24` 手动控制。
+
+图片或整屏刷新时，RGB565 数据会自动拆成 4096 字节以内的小块写入 `/dev/spidev0.0`。如果一次写入完整图片，例如 `320 * 170 * 2 = 108800` 字节，部分内核会返回：
+
+```text
+write /dev/spidev0.0 failed: Message too large
+```
+
+遇到这个错误说明程序版本还没有包含分块写逻辑，需要重新编译并部署最新版本。
 
 ## 9. Hardware SPI Migration
 
