@@ -2,8 +2,15 @@
 #include "data.h"
 #include "display_bus.h"
 
+#if ST7789_DISPLAY_LANDSCAPE
+#define TFT_COLUMN_OFFSET 0
+#define TFT_LINE_OFFSET   35
+#define TFT_MADCTL        0x60
+#else
 #define TFT_COLUMN_OFFSET 35
 #define TFT_LINE_OFFSET   0
+#define TFT_MADCTL        0x00
+#endif
 
 void st7789_delay_us(unsigned int us)
 {
@@ -166,7 +173,7 @@ void st7789_init(void)
     st7789_delay_ms(150);
 
     st7789_write_cmd(0x36);         // Memory Access Control
-    st7789_write_data(0x00);        // 方向（当前使用）
+    st7789_write_data(TFT_MADCTL);  // Display orientation
 
     st7789_write_cmd(0x3A);
     st7789_write_data(0x05);        // 16-bit color

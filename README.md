@@ -110,14 +110,21 @@ st7789
 默认构建使用软件 SPI，相当于：
 
 ```sh
-make DISPLAY_BUS=software
+make DISPLAY_BUS=software DISPLAY_ORIENTATION=landscape
+```
+
+默认显示方向是横屏 `320x170`，更适合显示当前拍照得到的 `1920x1080` 横向图片。如果要回到原来的竖屏坐标：
+
+```sh
+make clean
+make DISPLAY_ORIENTATION=portrait
 ```
 
 如果要测试用户态硬件 SPI / `spidev`：
 
 ```sh
 make clean
-make DISPLAY_BUS=spidev SPI_DEV=/dev/spidev0.0 SPI_SPEED_HZ=12000000
+make DISPLAY_BUS=spidev DISPLAY_ORIENTATION=landscape SPI_DEV=/dev/spidev0.0 SPI_SPEED_HZ=12000000
 ```
 
 其中：
@@ -125,6 +132,8 @@ make DISPLAY_BUS=spidev SPI_DEV=/dev/spidev0.0 SPI_SPEED_HZ=12000000
 ```text
 DISPLAY_BUS=software   使用 wiringX GPIO 软件模拟 SPI，默认值
 DISPLAY_BUS=spidev     使用 /dev/spidevX.Y 发送 SPI 数据
+DISPLAY_ORIENTATION=landscape  横屏坐标，320x170，默认值
+DISPLAY_ORIENTATION=portrait   竖屏坐标，170x320
 SPI_DEV                spidev 设备节点，默认 /dev/spidev0.0
 SPI_SPEED_HZ           SPI 速度，默认 12000000
 ```
@@ -183,11 +192,22 @@ void st7789_draw_checkerboard(uint16_t tile_size);
 4. 数组长度必须等于 width * height * 2。
 ```
 
-例如 120x120 图片需要：
+当前屏幕可用像素总数固定为：
 
 ```text
-120 * 120 * 2 = 28800 bytes
+170 * 320 = 54400 pixels
+54400 * 2 = 108800 bytes
 ```
+
+对于项目当前拍到的 `1920x1080` 横向照片，推荐横屏显示：
+
+```text
+cover:   320x170，全屏显示，源图约裁掉上下各 30px
+contain: 302x170，完整显示，左右各约 9px 黑边
+portrait contain: 170x96，完整显示，但上下空白很多
+```
+
+所以默认布局采用 `320x170 cover`，在小屏预览时信息密度最高。
 
 ## 6. Convert Images To Display Data
 
@@ -196,19 +216,19 @@ void st7789_draw_checkerboard(uint16_t tile_size);
 ```sh
 python3 -m pip install Pillow
 python3 tools/image_to_rgb565_c.py input.png \
-    --width 120 \
-    --height 120 \
     --name picture_tab \
     --output picture_data.c
 ```
+
+脚本默认输出 `320x170`，并会按图片 EXIF 方向自动转正。对于当前 `1920x1080` 照片，这正好对应横屏整屏预览。
 
 输出文件里会生成类似这样的数组：
 
 ```c
 #include <stdint.h>
 
-#define PICTURE_TAB_WIDTH 120
-#define PICTURE_TAB_HEIGHT 120
+#define PICTURE_TAB_WIDTH 320
+#define PICTURE_TAB_HEIGHT 170
 
 const uint8_t picture_tab[] = {
     0xF8, 0x00, 0x07, 0xE0,
@@ -223,6 +243,15 @@ const uint8_t picture_tab[] = {
 --fit cover     填满目标尺寸，必要时裁切，默认值
 --fit contain   保留完整图片，空白处补黑
 --fit stretch   直接拉伸到目标尺寸
+```
+
+如果你希望一张照片完整显示、不裁切：
+
+```sh
+python3 tools/image_to_rgb565_c.py input.png \
+    --fit contain \
+    --name picture_tab \
+    --output picture_data.c
 ```
 
 ## 7. Run On Duo S

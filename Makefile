@@ -1,5 +1,6 @@
 TARGET=st7789
 DISPLAY_BUS ?= software
+DISPLAY_ORIENTATION ?= landscape
 SPI_DEV ?= /dev/spidev0.0
 SPI_SPEED_HZ ?= 12000000
 
@@ -20,6 +21,14 @@ SYSROOT = /home/adrian/pocket/duo-sdk/host-tools/gcc/riscv64-linux-musl-aarch64/
 CFLAGS += -I$(SYSROOT)/usr/include
 CFLAGS += -DSPI_DEV=\"$(SPI_DEV)\"
 CFLAGS += -DSPI_SPEED_HZ=$(SPI_SPEED_HZ)
+
+ifeq ($(DISPLAY_ORIENTATION),landscape)
+CFLAGS += -DST7789_DISPLAY_LANDSCAPE=1
+else ifeq ($(DISPLAY_ORIENTATION),portrait)
+CFLAGS += -DST7789_DISPLAY_LANDSCAPE=0
+else
+$(error DISPLAY_ORIENTATION must be landscape or portrait)
+endif
 
 ifeq ($(DISPLAY_BUS),spidev)
 CFLAGS += -DDISPLAY_BUS_SPIDEV

@@ -17,8 +17,8 @@ def parse_args():
     parser.add_argument("input", help="source image path")
     parser.add_argument("-o", "--output", required=True, help="output .c or .h path")
     parser.add_argument("--name", default="image_rgb565", help="C array name")
-    parser.add_argument("--width", type=int, default=120, help="output width")
-    parser.add_argument("--height", type=int, default=120, help="output height")
+    parser.add_argument("--width", type=int, default=320, help="output width")
+    parser.add_argument("--height", type=int, default=170, help="output height")
     parser.add_argument(
         "--fit",
         choices=("cover", "contain", "stretch"),
@@ -46,7 +46,7 @@ def resize_image(image, width, height, fit):
 
 def main():
     args = parse_args()
-    image = Image.open(args.input)
+    image = ImageOps.exif_transpose(Image.open(args.input))
     image = resize_image(image, args.width, args.height, args.fit)
 
     values = []

@@ -3,8 +3,17 @@
 
 #include <stdint.h>
 
+#ifndef ST7789_DISPLAY_LANDSCAPE
+#define ST7789_DISPLAY_LANDSCAPE 1
+#endif
+
+#if ST7789_DISPLAY_LANDSCAPE
+#define ST7789_WIDTH   320
+#define ST7789_HEIGHT  170
+#else
 #define ST7789_WIDTH   170
 #define ST7789_HEIGHT  320
+#endif
 
 #define ST7789_RED     0xF800
 #define ST7789_GREEN   0x07E0
