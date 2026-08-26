@@ -148,8 +148,9 @@ SPI_SPEED_HZ           SPI 速度，默认 12000000
 | `st7789.c` / `st7789.h` | ST7789V3 初始化、地址窗口设置、RGB565 写屏 API |
 | `display_bus.c` | 当前底层传输实现，使用 wiringX GPIO 软件模拟 SPI |
 | `display_bus.h` | ST7789 上层调用的 bus 接口 |
-| `data.c` / `data.h` | 图片和字模测试数据 |
-| `tools/image_to_rgb565_c.py` | 将 PNG / JPG 转成 ST7789 可直接写入的 RGB565 C 数组 |
+| `data.c` / `data.h` | 原示例保留的字模测试数据 |
+| `picture_data.c` / `picture_data.h` | 当前显示的 RGB565 图片资源 |
+| `tools/image_to_rgb565_c.py` | 将 PNG / JPG 转成 `picture_data.c` / `picture_data.h` |
 
 当前仍然是软件 SPI：
 
@@ -216,26 +217,43 @@ portrait contain: 170x96，完整显示，但上下空白很多
 ```sh
 python3 -m pip install Pillow
 python3 tools/image_to_rgb565_c.py input.png \
-    --name picture_tab \
     --output picture_data.c
 ```
 
-脚本默认输出 `320x170`，并会按图片 EXIF 方向自动转正。对于当前 `1920x1080` 照片，这正好对应横屏整屏预览。
+脚本默认输出 `320x170`，数组名为 `picture_tab`，并会按图片 EXIF 方向自动转正。对于当前 `1920x1080` 照片，这正好对应横屏整屏预览。
 
-输出文件里会生成类似这样的数组：
+执行后会同时生成：
+
+```text
+picture_data.c
+picture_data.h
+```
+
+`picture_data.h` 中包含尺寸宏，`picture_data.c` 中包含 RGB565 数据，二者需要一起提交或复制。
+
+头文件会生成类似这样的内容：
 
 ```c
 #include <stdint.h>
 
 #define PICTURE_TAB_WIDTH 320
 #define PICTURE_TAB_HEIGHT 170
+#define PICTURE_TAB_SIZE (PICTURE_TAB_WIDTH * PICTURE_TAB_HEIGHT * 2)
 
-const uint8_t picture_tab[] = {
+extern const uint8_t picture_tab[PICTURE_TAB_SIZE];
+```
+
+C 文件会生成类似这样的数组：
+
+```c
+#include "picture_data.h"
+
+const uint8_t picture_tab[PICTURE_TAB_SIZE] = {
     0xF8, 0x00, 0x07, 0xE0,
 };
 ```
 
-如果要替换仓库内置示例图，可以把生成出的数组内容放到 `data.c`，并让 `data.h` 中的 `PICTURE_TAB_WIDTH` / `PICTURE_TAB_HEIGHT` 与转换参数保持一致。
+如果要替换仓库内置示例图，直接用新生成的 `picture_data.c` / `picture_data.h` 覆盖仓库里的同名文件即可，不需要再手动修改 `data.c` 或尺寸宏。
 
 脚本支持三种缩放方式：
 
@@ -250,7 +268,6 @@ const uint8_t picture_tab[] = {
 ```sh
 python3 tools/image_to_rgb565_c.py input.png \
     --fit contain \
-    --name picture_tab \
     --output picture_data.c
 ```
 

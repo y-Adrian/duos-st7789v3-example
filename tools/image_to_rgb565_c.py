@@ -2,6 +2,7 @@
 """Convert an image file to an ST7789-friendly RGB565 C array."""
 
 import argparse
+import re
 from pathlib import Path
 from PIL import Image, ImageOps
 
@@ -15,8 +16,9 @@ def parse_args():
         description="Convert PNG/JPG/etc. to big-endian RGB565 bytes for ST7789."
     )
     parser.add_argument("input", help="source image path")
-    parser.add_argument("-o", "--output", required=True, help="output .c or .h path")
-    parser.add_argument("--name", default="image_rgb565", help="C array name")
+    parser.add_argument("-o", "--output", default="picture_data.c", help="output .c path")
+    parser.add_argument("--header", help="output .h path, default is output path with .h suffix")
+    parser.add_argument("--name", default="picture_tab", help="C array name")
     parser.add_argument("--width", type=int, default=320, help="output width")
     parser.add_argument("--height", type=int, default=170, help="output height")
     parser.add_argument(
@@ -26,6 +28,19 @@ def parse_args():
         help="resize behavior before RGB565 conversion",
     )
     return parser.parse_args()
+
+
+def macro_name(name):
+    macro = re.sub(r"[^0-9A-Za-z]+", "_", name).strip("_").upper()
+    if not macro:
+        return "IMAGE_RGB565"
+    if macro[0].isdigit():
+        macro = "_" + macro
+    return macro
+
+
+def header_guard(path):
+    return macro_name(path.name) + "_"
 
 
 def resize_image(image, width, height, fit):
@@ -56,11 +71,23 @@ def main():
         values.append(rgb565 & 0xFF)
 
     output = Path(args.output)
-    with output.open("w", encoding="utf-8") as f:
+    header = Path(args.header) if args.header else output.with_suffix(".h")
+    array_macro = macro_name(args.name)
+    guard = header_guard(header)
+
+    with header.open("w", encoding="utf-8") as f:
+        f.write(f"#ifndef {guard}\n")
+        f.write(f"#define {guard}\n\n")
         f.write("#include <stdint.h>\n\n")
-        f.write(f"#define {args.name.upper()}_WIDTH {args.width}\n")
-        f.write(f"#define {args.name.upper()}_HEIGHT {args.height}\n\n")
-        f.write(f"const uint8_t {args.name}[] = {{\n")
+        f.write(f"#define {array_macro}_WIDTH  {args.width}\n")
+        f.write(f"#define {array_macro}_HEIGHT {args.height}\n")
+        f.write(f"#define {array_macro}_SIZE   ({array_macro}_WIDTH * {array_macro}_HEIGHT * 2)\n\n")
+        f.write(f"extern const uint8_t {args.name}[{array_macro}_SIZE];\n\n")
+        f.write("#endif\n")
+
+    with output.open("w", encoding="utf-8") as f:
+        f.write(f"#include \"{header.name}\"\n\n")
+        f.write(f"const uint8_t {args.name}[{array_macro}_SIZE] = {{\n")
 
         for offset in range(0, len(values), 12):
             line = values[offset:offset + 12]

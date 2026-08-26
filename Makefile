@@ -40,7 +40,7 @@ LDFLAGS += -L$(SYSROOT)/lib
 LDFLAGS += -L$(SYSROOT)/usr/lib
 LDFLAGS += -lwiringx
 
-SOURCE = $(wildcard *.c)
+SOURCE = main.c st7789.c display_bus.c data.c picture_data.c
 OBJS = $(patsubst %.c,%.o,$(SOURCE))
 
 $(TARGET): $(OBJS)

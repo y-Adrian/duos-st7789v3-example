@@ -1,6 +1,6 @@
 #include "display_bus.h"
 #include "st7789.h"
-#include "data.h"
+#include "picture_data.h"
 
 #include <stdio.h>
 

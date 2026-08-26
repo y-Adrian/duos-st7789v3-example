@@ -1,6 +1,7 @@
 #include "st7789.h"
 #include "data.h"
 #include "display_bus.h"
+#include "picture_data.h"
 
 #if ST7789_DISPLAY_LANDSCAPE
 #define TFT_COLUMN_OFFSET 0
